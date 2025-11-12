@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Upload, AlertTriangle } from 'lucide-react';
 import { hazardApi, HazardCategory, HazardReportRequest, fileApi } from '../lib/api';
 
@@ -7,6 +7,11 @@ interface HazardReportModalProps {
   longitude: number;
   onClose: () => void;
   onSuccess: () => void;
+  // 수정 모드용 props
+  hazardId?: number;
+  initialCategory?: HazardCategory;
+  initialDescription?: string;
+  initialImageUrl?: string;
 }
 
 const HAZARD_CATEGORIES: { value: HazardCategory; label: string }[] = [
@@ -26,13 +31,27 @@ export default function HazardReportModal({
   longitude,
   onClose,
   onSuccess,
+  hazardId,
+  initialCategory,
+  initialDescription,
+  initialImageUrl,
 }: HazardReportModalProps) {
-  const [category, setCategory] = useState<HazardCategory>('OTHER');
-  const [description, setDescription] = useState('');
+  const isEditMode = !!hazardId;
+  const [category, setCategory] = useState<HazardCategory>(initialCategory || 'OTHER');
+  const [description, setDescription] = useState(initialDescription || '');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(initialImageUrl || null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // 수정 모드일 때 초기값 설정
+  useEffect(() => {
+    if (isEditMode) {
+      if (initialCategory) setCategory(initialCategory);
+      if (initialDescription) setDescription(initialDescription);
+      if (initialImageUrl) setPreviewUrl(initialImageUrl);
+    }
+  }, [isEditMode, initialCategory, initialDescription, initialImageUrl]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -81,6 +100,9 @@ export default function HazardReportModal({
           setIsSubmitting(false);
           return;
         }
+      } else if (isEditMode && initialImageUrl) {
+        // 수정 모드이고 새 이미지를 선택하지 않았으면 기존 이미지 URL 사용
+        imageUrl = initialImageUrl;
       }
 
       const request: HazardReportRequest = {
@@ -91,11 +113,22 @@ export default function HazardReportModal({
         imageUrl,
       };
 
-      console.log('위험 요소 신고 요청:', request);
-      const response = await hazardApi.report(request);
+      console.log(isEditMode ? '위험 요소 수정 요청:' : '위험 요소 신고 요청:', request);
+      
+      let response;
+      if (isEditMode && hazardId) {
+        response = await hazardApi.update(hazardId, request);
+      } else {
+        response = await hazardApi.report(request);
+      }
       console.log('위험 요소 신고 응답:', response);
+      console.log('응답 success 값:', response.success, '타입:', typeof response.success);
 
-      if (response.success) {
+      // response.success가 true인지 확인 (문자열 "true"도 체크)
+      const isSuccess = response.success === true || response.success === 'true' || response?.success === true;
+      
+      if (isSuccess) {
+        console.log('위험 요소 신고 성공');
         onSuccess();
         onClose();
       } else {
@@ -133,7 +166,7 @@ export default function HazardReportModal({
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <h2 className="text-xl font-bold flex items-center gap-2">
             <AlertTriangle className="text-red-500" size={24} />
-            위험 요소 신고
+            {isEditMode ? '위험 요소 수정' : '위험 요소 신고'}
           </h2>
           <button
             onClick={onClose}
@@ -254,10 +287,10 @@ export default function HazardReportModal({
               {isSubmitting ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  신고 중...
+                  {isEditMode ? '수정 중...' : '신고 중...'}
                 </>
               ) : (
-                '신고하기'
+                isEditMode ? '수정하기' : '신고하기'
               )}
             </button>
           </div>

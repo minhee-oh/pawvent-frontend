@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { Play, Pause, Square, Loader2, AlertTriangle } from 'lucide-react'
-import KakaoMap from '../components/KakaoMap'
+import KakaoMap, { type SpotData } from '../components/KakaoMap'
 import HazardReportModal from '../components/HazardReportModal'
+import SpotDetailModal from '../components/SpotDetailModal'
+import HazardDetailModal from '../components/HazardDetailModal'
 import { walkSessionApi, walkRouteApi, type WalkRoute } from '../lib/api'
 
 interface Position {
@@ -26,6 +28,18 @@ export default function WalkSession() {
   const [enableHazardReport, setEnableHazardReport] = useState(false)
   const [hazardReportLocation, setHazardReportLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [hazardsRefreshKey, setHazardsRefreshKey] = useState(0)
+  
+  // 스팟 상세 모달 관련
+  const [selectedSpot, setSelectedSpot] = useState<SpotData | null>(null)
+  const [isSpotModalOpen, setIsSpotModalOpen] = useState(false)
+  
+  // 위험 스팟 상세 모달 관련
+  const [selectedHazard, setSelectedHazard] = useState<any>(null)
+  const [isHazardModalOpen, setIsHazardModalOpen] = useState(false)
+  
+  // 위험 스팟 수정 모달 관련
+  const [isHazardEditModalOpen, setIsHazardEditModalOpen] = useState(false)
+  const [editingHazard, setEditingHazard] = useState<any>(null)
   
   // GPS 위치 추적 관련
   const watchIdRef = useRef<number | null>(null)
@@ -268,13 +282,30 @@ export default function WalkSession() {
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <div className="mb-6 overflow-hidden rounded-lg relative">
           <KakaoMap 
-            autoLocation={isWalking}
+            autoLocation={true}
             showHazards={true}
+            showSpots={true}
             height="400px"
             level={3}
             enableHazardReport={enableHazardReport}
+            draggableLocationMarker={true}
             onMapClick={(lat, lng) => {
               setHazardReportLocation({ lat, lng });
+            }}
+            onLocationChange={(lat, lng) => {
+              // 위치가 변경되면 위험 스팟 목록 새로고침
+              setHazardsRefreshKey(prev => prev + 1);
+            }}
+            onSpotClick={(spot) => {
+              console.log('WalkSession onSpotClick 호출:', spot);
+              setSelectedSpot(spot);
+              setIsSpotModalOpen(true);
+              console.log('모달 상태 업데이트:', { selectedSpot: spot, isOpen: true });
+            }}
+            onMarkerClick={(hazard) => {
+              console.log('WalkSession onMarkerClick 호출:', hazard);
+              setSelectedHazard(hazard);
+              setIsHazardModalOpen(true);
             }}
             key={hazardsRefreshKey}
           />
@@ -354,6 +385,57 @@ export default function WalkSession() {
             setHazardsRefreshKey(prev => prev + 1);
             setHazardReportLocation(null);
             setEnableHazardReport(false);
+          }}
+        />
+      )}
+      
+      {/* 스팟 상세 모달 */}
+      <SpotDetailModal
+        spot={selectedSpot}
+        isOpen={isSpotModalOpen}
+        onClose={() => {
+          setIsSpotModalOpen(false);
+          setSelectedSpot(null);
+        }}
+      />
+      
+      {/* 위험 스팟 상세 모달 */}
+      <HazardDetailModal
+        hazard={selectedHazard}
+        isOpen={isHazardModalOpen}
+        onClose={() => {
+          setIsHazardModalOpen(false);
+          setSelectedHazard(null);
+        }}
+        onEdit={(hazard) => {
+          setEditingHazard(hazard);
+          setIsHazardModalOpen(false);
+          setIsHazardEditModalOpen(true);
+        }}
+        onDelete={() => {
+          setHazardsRefreshKey(prev => prev + 1);
+          setIsHazardModalOpen(false);
+          setSelectedHazard(null);
+        }}
+      />
+      
+      {/* 위험 스팟 수정 모달 */}
+      {isHazardEditModalOpen && editingHazard && (
+        <HazardReportModal
+          latitude={editingHazard.latitude}
+          longitude={editingHazard.longitude}
+          hazardId={editingHazard.id}
+          initialCategory={editingHazard.category as any}
+          initialDescription={editingHazard.description}
+          initialImageUrl={editingHazard.imageUrl}
+          onClose={() => {
+            setIsHazardEditModalOpen(false);
+            setEditingHazard(null);
+          }}
+          onSuccess={() => {
+            setHazardsRefreshKey(prev => prev + 1);
+            setIsHazardEditModalOpen(false);
+            setEditingHazard(null);
           }}
         />
       )}

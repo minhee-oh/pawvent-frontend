@@ -383,6 +383,12 @@ export const hazardApi = {
     return response.data;
   },
 
+  // 위험 요소 수정
+  update: async (hazardId: number, request: HazardReportRequest) => {
+    const response = await apiClient.put<ApiResponse<HazardResponse>>(`/hazards/${hazardId}`, request);
+    return response.data;
+  },
+
   // 위험 요소 삭제
   delete: async (hazardId: number) => {
     const response = await apiClient.delete<ApiResponse<void>>(`/hazards/${hazardId}`);
