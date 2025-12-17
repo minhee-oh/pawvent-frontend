@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { communityApi, CommunityPostResponse, PostCategory, CommunityPostCreateRequest, CommunityPostUpdateRequest, fileApi, userApi, UserResponse } from '../lib/api'
-import { Plus, Edit, X, Upload, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, Edit, Plus, Search, Upload, X } from 'lucide-react'
+import communityHeroDesktop from '../../assets/community1.jpg'
+import communityHeroMobile from '../../assets/community2.jpg'
 
 const CATEGORY_TABS: { key: PostCategory | 'ALL'; label: string }[] = [
   { key: 'ALL', label: '전체' },
@@ -70,6 +72,12 @@ export default function Community() {
   const [editingPost, setEditingPost] = useState<CommunityPostResponse | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [authorProfilesMap, setAuthorProfilesMap] = useState<Map<number, UserResponse>>(new Map())
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortOption, setSortOption] = useState<'LATEST' | 'OLDEST'>('LATEST')
+
+  const activeTabLabel = useMemo(() => {
+    return CATEGORY_TABS.find(t => t.key === activeTab)?.label ?? '전체'
+  }, [activeTab])
 
   const loadPosts = async () => {
     try {
@@ -133,34 +141,136 @@ export default function Community() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab])
 
+  // 디자인용 UI(검색/정렬) - 게시글 목록 자체(서버 호출/동작)는 유지
+  const visiblePosts = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase()
+    let list = posts
+
+    // 검색은 "UI 입력값 반영" 정도만: 제목/내용 기준으로 클라이언트 필터링 (서버 동작 변경 없음)
+    if (normalizedQuery) {
+      list = list.filter(p =>
+        (p.title || '').toLowerCase().includes(normalizedQuery) ||
+        (p.content || '').toLowerCase().includes(normalizedQuery)
+      )
+    }
+
+    // 정렬도 클라이언트에서만 처리
+    list = [...list].sort((a, b) => {
+      const aTime = new Date(a.createdAt).getTime()
+      const bTime = new Date(b.createdAt).getTime()
+      return sortOption === 'LATEST' ? bTime - aTime : aTime - bTime
+    })
+
+    return list
+  }, [posts, searchQuery, sortOption])
+
   // 페이지네이션 계산
-  const totalPages = Math.ceil(posts.length / POSTS_PER_PAGE)
+  const totalPages = Math.ceil(visiblePosts.length / POSTS_PER_PAGE)
   const startIndex = (currentPage - 1) * POSTS_PER_PAGE
   const endIndex = startIndex + POSTS_PER_PAGE
-  const currentPosts = posts.slice(startIndex, endIndex)
+  const currentPosts = visiblePosts.slice(startIndex, endIndex)
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold">커뮤니티</h2>
+    <div className="max-w-6xl mx-auto px-4 py-6">
+      {/* Hero */}
+      <section className="mb-6">
+        <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-gray-100">
+          <picture>
+            <source media="(min-width: 768px)" srcSet={communityHeroDesktop} />
+            <img
+              src={communityHeroMobile}
+              alt="커뮤니티 히어로 이미지"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          </picture>
+          <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/25 to-transparent" />
+          <div className="relative min-h-[220px] sm:min-h-[300px] p-6 sm:p-10 flex flex-col justify-end gap-3">
+            <span className="inline-flex w-fit items-center rounded-full bg-violet-600/90 px-3 py-1 text-[11px] font-semibold text-white">
+              community
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+              pawvent와 함께 일상을 공유해주세요
+            </h1>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="mt-4 flex items-center justify-center">
+          <div className="w-full max-w-xl">
+            <div className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 shadow-sm">
+              <input
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value)
+                  setCurrentPage(1)
+                }}
+                placeholder="원하는 주제를 검색해보세요"
+                className="flex-1 bg-transparent px-2 text-sm text-gray-700 placeholder:text-gray-400 outline-none"
+              />
+              <button
+                type="button"
+                className="h-9 w-9 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary/90 transition-colors"
+                aria-label="검색"
+                onClick={() => {/* 디자인용 UI: 엔터/버튼 동작은 동일(필터는 입력으로 이미 적용) */}}
+              >
+                <Search size={18} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Breadcrumb */}
+      <div className="flex items-center justify-between gap-3 text-xs text-gray-500 mb-4">
         <button
-          onClick={() => { setEditingPost(null); setShowEditor(true) }}
-          className="px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
+          type="button"
+          className="inline-flex items-center justify-center h-9 w-9 rounded-full hover:bg-gray-100 transition-colors"
+          aria-label="뒤로가기"
+          onClick={() => navigate(-1)}
         >
-          <Plus size={18} /> 글쓰기
+          <ArrowLeft size={18} />
         </button>
+        <div className="ml-auto">
+          서비스 &gt; 커뮤니티 &gt; {activeTabLabel}
+        </div>
       </div>
 
-      <div className="flex gap-2 mb-6">
-        {CATEGORY_TABS.map(tab => (
+      {/* Filters / Actions */}
+      <div className="flex items-center justify-between gap-3 mb-6">
+        <div className="flex flex-wrap gap-2">
+          {CATEGORY_TABS.map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={[
+                'px-4 py-2 rounded-full text-sm border transition-colors',
+                activeTab === tab.key
+                  ? 'bg-primary text-white border-primary'
+                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50',
+              ].join(' ')}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2">
           <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`px-3 py-2 rounded-lg border ${activeTab === tab.key ? 'bg-primary text-white border-primary' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+            onClick={() => { setEditingPost(null); setShowEditor(true) }}
+            className="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-white text-sm hover:bg-primary/90 transition-colors"
           >
-            {tab.label}
+            <Plus size={16} /> 글쓰기
           </button>
-        ))}
+          <select
+            value={sortOption}
+            onChange={(e) => setSortOption(e.target.value as any)}
+            className="px-4 py-2 rounded-full border border-gray-200 bg-white text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            aria-label="정렬"
+          >
+            <option value="LATEST">최신순</option>
+            <option value="OLDEST">오래된순</option>
+          </select>
+        </div>
       </div>
 
       {error && (
@@ -171,66 +281,68 @@ export default function Community() {
 
       {isLoading ? (
         <div className="text-center text-gray-500 py-16">불러오는 중...</div>
-      ) : posts.length === 0 ? (
+      ) : visiblePosts.length === 0 ? (
         <div className="text-center text-gray-500 py-16">게시글이 없습니다.</div>
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {currentPosts.map(post => (
-            <article key={post.id} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col cursor-pointer" onClick={() => navigate(`/community/${post.id}`)}>
-              {/* 이미지 섹션 */}
-              {post.imageUrl && (
-                <div className="relative w-full h-48 overflow-hidden bg-gray-100" onClick={(e) => e.stopPropagation()}>
-                  <img 
-                    src={post.imageUrl} 
-                    alt="게시글 이미지" 
-                    className="w-full h-full object-cover" 
-                  />
-                </div>
-              )}
-              {post.videoUrl && !post.imageUrl && (
-                <div className="relative w-full h-48 overflow-hidden bg-gray-100" onClick={(e) => e.stopPropagation()}>
-                  {post.videoUrl.includes('youtube.com') || post.videoUrl.includes('youtu.be') ? (
-                    (() => {
-                      const embedUrl = convertToYoutubeEmbedUrl(post.videoUrl)
-                      if (embedUrl) {
-                        return (
-                          <iframe
-                            src={embedUrl}
-                            className="w-full h-full"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                            title="YouTube video player"
-                          />
-                        )
-                      }
-                      return (
-                        <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-500 text-sm">
-                          유튜브 링크 형식이 올바르지 않습니다
-                        </div>
-                      )
-                    })()
-                  ) : (
-                    <video src={post.videoUrl} controls className="w-full h-full object-cover" />
-                  )}
-                </div>
-              )}
+            <article
+              key={post.id}
+              className="group bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col cursor-pointer"
+              onClick={() => navigate(`/community/${post.id}`)}
+            >
+              {/* 썸네일(이미지/영상이 있을 때만) */}
+              {(post.imageUrl || post.videoUrl) && (
+                <div className="relative w-full h-44 overflow-hidden bg-gray-100" onClick={(e) => e.stopPropagation()}>
+                  {post.imageUrl ? (
+                    <img
+                      src={post.imageUrl}
+                      alt="게시글 이미지"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : post.videoUrl ? (
+                    <div className="w-full h-full">
+                      {post.videoUrl.includes('youtube.com') || post.videoUrl.includes('youtu.be') ? (
+                        (() => {
+                          const embedUrl = convertToYoutubeEmbedUrl(post.videoUrl)
+                          if (embedUrl) {
+                            return (
+                              <iframe
+                                src={embedUrl}
+                                className="w-full h-full"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                                title="YouTube video player"
+                              />
+                            )
+                          }
+                          return (
+                            <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-500 text-sm">
+                              유튜브 링크 형식이 올바르지 않습니다
+                            </div>
+                          )
+                        })()
+                      ) : (
+                        <video src={post.videoUrl} controls className="w-full h-full object-cover" />
+                      )}
+                    </div>
+                  ) : null}
 
-              {/* 카드 내용 */}
-              <div className="p-4 flex-1 flex flex-col">
-                <div className="flex items-center justify-between mb-2" onClick={(e) => e.stopPropagation()}>
-                  <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
-                    {post.category === 'WALK_CERTIFICATION' ? '산책 인증' : post.category === 'FREE' ? '자유' : '안전하개'}
+                  <span className="absolute top-3 left-3 text-[11px] px-2.5 py-1 rounded-full bg-white/90 text-gray-800 font-semibold backdrop-blur">
+                    {post.category === 'WALK_CERTIFICATION' ? '산책 인증' : post.category === 'FREE' ? '자유 게시판' : '안전하개'}
                   </span>
-                  <div className="flex gap-1">
+
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
                         setEditingPost(post)
                         setShowEditor(true)
                       }}
-                      className="p-1.5 hover:bg-blue-50 rounded-lg transition-colors text-blue-500"
+                      className="h-9 w-9 inline-flex items-center justify-center rounded-full bg-white/90 hover:bg-white text-blue-600 shadow-sm transition-colors"
                       title="수정"
+                      aria-label="수정"
                     >
                       <Edit size={16} />
                     </button>
@@ -248,45 +360,67 @@ export default function Community() {
                           }
                         }
                       }}
-                      className="p-1.5 hover:bg-red-50 rounded-lg transition-colors text-red-500"
+                      className="h-9 w-9 inline-flex items-center justify-center rounded-full bg-white/90 hover:bg-white text-red-600 shadow-sm transition-colors"
                       title="삭제"
+                      aria-label="삭제"
                     >
                       <X size={16} />
                     </button>
                   </div>
                 </div>
+              )}
 
-                <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">{post.title}</h3>
-                <p className="text-sm text-gray-600 mb-3 line-clamp-3 flex-1">{post.content}</p>
-
-                {/* 비디오가 있고 이미지가 없는 경우는 이미 위에서 표시됨 */}
-                {post.videoUrl && post.imageUrl && (
-                  <div className="mb-3" onClick={(e) => e.stopPropagation()}>
-                    {post.videoUrl.includes('youtube.com') || post.videoUrl.includes('youtu.be') ? (
-                      (() => {
-                        const embedUrl = convertToYoutubeEmbedUrl(post.videoUrl)
-                        if (embedUrl) {
-                          return (
-                            <iframe
-                              src={embedUrl}
-                              className="w-full h-32 rounded-lg"
-                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                              allowFullScreen
-                              title="YouTube video player"
-                            />
-                          )
-                        }
-                        return (
-                          <div className="w-full h-32 flex items-center justify-center bg-gray-200 text-gray-500 text-xs rounded-lg">
-                            유튜브 링크 형식이 올바르지 않습니다
-                          </div>
-                        )
-                      })()
-                    ) : (
-                      <video src={post.videoUrl} controls className="w-full h-32 rounded-lg" />
-                    )}
+              {/* 카드 내용 */}
+              <div className="p-4 flex-1 flex flex-col">
+                {/* 미디어가 없는 글은 카테고리/액션을 텍스트 영역으로 올려서 '글로 채움' */}
+                {!(post.imageUrl || post.videoUrl) && (
+                  <div className="flex items-center justify-between mb-3" onClick={(e) => e.stopPropagation()}>
+                    <span className="text-[11px] px-2.5 py-1 rounded-full bg-gray-100 text-gray-800 font-semibold">
+                      {post.category === 'WALK_CERTIFICATION' ? '산책 인증' : post.category === 'FREE' ? '자유 게시판' : '안전하개'}
+                    </span>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setEditingPost(post)
+                          setShowEditor(true)
+                        }}
+                        className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-blue-50 text-blue-600 transition-colors"
+                        title="수정"
+                        aria-label="수정"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation()
+                          if (window.confirm('이 게시글을 삭제하시겠습니까?')) {
+                            try {
+                              const res = await communityApi.delete(post.id)
+                              if (res.success) {
+                                setPosts(posts.filter(p => p.id !== post.id))
+                              }
+                            } catch {
+                              alert('삭제에 실패했습니다.')
+                            }
+                          }
+                        }}
+                        className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-red-50 text-red-600 transition-colors"
+                        title="삭제"
+                        aria-label="삭제"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
                   </div>
                 )}
+
+                <h3 className="text-base font-semibold text-gray-900 mb-2 line-clamp-2">
+                  {post.title}
+                </h3>
+                <p className="text-sm text-gray-600 mb-4 line-clamp-3 flex-1">
+                  {post.content}
+                </p>
 
                 <div className="mt-auto pt-3 border-t border-gray-100">
                   <div className="flex items-center justify-between">
@@ -295,43 +429,33 @@ export default function Community() {
                         const profile = authorProfilesMap.get(post.authorId)
                         const profileImageUrl = profile?.profileImageUrl
                         const nickname = profile?.nickname || post.authorNickname || '사용자'
-                        
-                        console.log(`게시글 ${post.id} 작성자 ${post.authorId} 프로필:`, {
-                          profile,
-                          profileImageUrl,
-                          nickname,
-                          hasProfile: !!profile
-                        })
-                        
+
                         if (profileImageUrl && profileImageUrl.trim() !== '' && profileImageUrl !== 'null') {
                           return (
                             <>
-                              <img 
-                                src={profileImageUrl} 
-                                alt="프로필" 
-                                className="w-6 h-6 rounded-full object-cover"
+                              <img
+                                src={profileImageUrl}
+                                alt="프로필"
+                                className="w-7 h-7 rounded-full object-cover"
                                 onError={(e) => {
-                                  console.error('프로필 이미지 로드 실패:', profileImageUrl, '작성자 ID:', post.authorId)
                                   e.currentTarget.style.display = 'none'
                                   const fallback = e.currentTarget.nextElementSibling as HTMLElement
-                                  if (fallback) {
-                                    fallback.style.display = 'flex'
-                                  }
+                                  if (fallback) fallback.style.display = 'flex'
                                 }}
                               />
-                              <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center text-xs text-gray-600 hidden">
+                              <div className="w-7 h-7 rounded-full bg-gray-300 flex items-center justify-center text-xs text-gray-700 hidden">
                                 {nickname[0]}
                               </div>
                             </>
                           )
                         }
                         return (
-                          <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center text-xs text-gray-600">
+                          <div className="w-7 h-7 rounded-full bg-gray-300 flex items-center justify-center text-xs text-gray-700">
                             {nickname[0]}
                           </div>
                         )
                       })()}
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-gray-600">
                         {authorProfilesMap.get(post.authorId)?.nickname || post.authorNickname || '사용자'}
                       </p>
                     </div>
@@ -349,7 +473,7 @@ export default function Community() {
               <button
                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                 disabled={currentPage === 1}
-                className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="h-9 w-9 inline-flex items-center justify-center rounded-full border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronLeft size={20} />
               </button>
@@ -358,10 +482,10 @@ export default function Community() {
                   <button
                     key={page}
                     onClick={() => setCurrentPage(page)}
-                    className={`px-4 py-2 rounded-lg border transition-colors ${
+                    className={`h-9 min-w-9 px-3 rounded-md border transition-colors ${
                       currentPage === page
                         ? 'bg-primary text-white border-primary'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
                     }`}
                   >
                     {page}
@@ -371,7 +495,7 @@ export default function Community() {
               <button
                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                 disabled={currentPage === totalPages}
-                className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="h-9 w-9 inline-flex items-center justify-center rounded-full border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronRight size={20} />
               </button>
