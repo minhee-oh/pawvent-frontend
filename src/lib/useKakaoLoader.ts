@@ -31,13 +31,13 @@ export const useKakaoLoader = () => {
 
     const script = document.createElement('script');
     script.id = scriptId;
-    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${import.meta.env.VITE_KAKAO_JS_KEY}&libraries=services,clusterer&autoload=false`;
+    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${(import.meta as any).env?.VITE_KAKAO_JS_KEY || ''}&libraries=services,clusterer&autoload=false`;
     script.async = true;
 
     script.onload = () => {
       // 카카오 맵 SDK가 로드되면 초기화
       if (window.kakao && window.kakao.maps) {
-        window.kakao.maps.load(() => {
+        (window.kakao.maps as any).load(() => {
           setIsLoaded(true);
         });
       }
@@ -63,6 +63,7 @@ export const useKakaoLoader = () => {
 
   return { isLoaded, error };
 };
+
 
 
 
