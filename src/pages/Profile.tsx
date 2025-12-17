@@ -71,7 +71,7 @@ export default function Profile() {
 
   if (isLoading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="flex items-center justify-center min-h-[400px]">
           <Loader2 className="animate-spin text-primary" size={48} />
         </div>
@@ -81,8 +81,8 @@ export default function Profile() {
 
   if (error) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
           <p className="text-red-700">{error}</p>
         </div>
       </div>
@@ -94,82 +94,105 @@ export default function Profile() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
-      <h2 className="text-2xl font-bold mb-6">프로필</h2>
+    <div className="max-w-6xl mx-auto px-4 py-8">
+      {/* Header card */}
+      <section className="mb-8">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center gap-5">
+            <div className="flex items-center gap-4">
+              {user.profileImageUrl ? (
+                <img
+                  src={user.profileImageUrl}
+                  alt={user.nickname || '프로필'}
+                  className="w-20 h-20 rounded-full object-cover border border-gray-200"
+                />
+              ) : (
+                <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center text-2xl font-semibold text-gray-700">
+                  {user.nickname?.[0]?.toUpperCase() || 'U'}
+                </div>
+              )}
+              <div>
+                <h2 className="text-2xl font-extrabold tracking-tight text-gray-900">
+                  {user.nickname || '사용자'}
+                </h2>
+                <p className="text-sm text-gray-500">{user.email}</p>
+              </div>
+            </div>
 
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <div className="flex items-center gap-4 mb-6">
-          {user.profileImageUrl ? (
-            <img 
-              src={user.profileImageUrl} 
-              alt={user.nickname || '프로필'} 
-              className="w-20 h-20 rounded-full object-cover"
-            />
+            <div className="sm:ml-auto flex items-center gap-2">
+              <button
+                type="button"
+                className="h-10 w-10 rounded-full hover:bg-gray-100 transition-colors inline-flex items-center justify-center"
+                aria-label="설정"
+              >
+                <Settings size={20} className="text-gray-700" />
+              </button>
+            </div>
+          </div>
+
+          {/* Stats (기존 값 유지: 디자인만 변경) */}
+          <div className="border-t border-gray-100 p-6 sm:p-8">
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <p className="text-2xl font-extrabold text-primary">156</p>
+                <p className="text-xs text-gray-500 mt-1">총 산책</p>
+              </div>
+              <div>
+                <p className="text-2xl font-extrabold text-primary">248 km</p>
+                <p className="text-xs text-gray-500 mt-1">총 거리</p>
+              </div>
+              <div>
+                <p className="text-2xl font-extrabold text-primary">12</p>
+                <p className="text-xs text-gray-500 mt-1">달성 배지</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Pets */}
+      <section className="mb-8">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+          <div className="flex items-center justify-between gap-3 mb-5">
+            <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2">
+              <Heart className="text-red-500" size={20} />
+              내 반려동물
+            </h3>
+            <button
+              type="button"
+              onClick={() => setShowAddPetModal(true)}
+              className="inline-flex items-center gap-2 rounded-full bg-primary text-white px-4 py-2 text-sm font-semibold hover:bg-primary/90 transition-colors"
+            >
+              <Plus size={16} />
+              추가
+            </button>
+          </div>
+
+          {pets.length === 0 ? (
+            <p className="text-gray-500 text-center py-10">등록된 반려동물이 없습니다.</p>
           ) : (
-            <div className="w-20 h-20 bg-gray-300 rounded-full flex items-center justify-center text-2xl">
-              {user.nickname?.[0]?.toUpperCase() || 'U'}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {pets.map((pet) => (
+                <PetCard
+                  key={pet.id}
+                  pet={pet}
+                  onEdit={() => setEditingPet(pet)}
+                  onDelete={async () => {
+                    if (window.confirm(`${pet.name}을(를) 삭제하시겠습니까?`)) {
+                      try {
+                        await petApi.delete(pet.id)
+                        setPets(pets.filter(p => p.id !== pet.id))
+                      } catch (err) {
+                        alert('반려동물 삭제에 실패했습니다.')
+                      }
+                    }
+                  }}
+                />
+              ))}
             </div>
           )}
-          <div className="flex-1">
-            <h3 className="text-xl font-bold mb-1">{user.nickname || '사용자'}</h3>
-          </div>
-          <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-            <Settings size={24} className="text-gray-600" />
-          </button>
         </div>
-
-        <div className="grid grid-cols-3 gap-4 text-center pt-6 border-t">
-          <div>
-            <p className="text-2xl font-bold text-primary">156</p>
-            <p className="text-sm text-gray-600">총 산책</p>
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-primary">248 km</p>
-            <p className="text-sm text-gray-600">총 거리</p>
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-primary">12</p>
-            <p className="text-sm text-gray-600">달성 배지</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Heart className="text-red-500" size={20} />
-          내 반려동물
-        </h3>
-        <div className="space-y-3">
-          {pets.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">등록된 반려동물이 없습니다.</p>
-          ) : (
-            pets.map((pet) => (
-              <PetCard 
-                key={pet.id} 
-                pet={pet}
-                onEdit={() => setEditingPet(pet)}
-                onDelete={async () => {
-                  if (window.confirm(`${pet.name}을(를) 삭제하시겠습니까?`)) {
-                    try {
-                      await petApi.delete(pet.id)
-                      setPets(pets.filter(p => p.id !== pet.id))
-                    } catch (err) {
-                      alert('반려동물 삭제에 실패했습니다.')
-                    }
-                  }
-                }}
-              />
-            ))
-          )}
-        </div>
-        <button 
-          onClick={() => setShowAddPetModal(true)}
-          className="w-full mt-4 py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2"
-        >
-          <Plus size={20} />
-          반려동물 추가
-        </button>
-      </div>
+      </section>
 
       {/* 반려동물 추가 모달 */}
       {showAddPetModal && (
@@ -194,22 +217,25 @@ export default function Profile() {
         />
       )}
 
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Award className="text-yellow-500" size={20} />
-          획득한 배지
-        </h3>
-        <div className="grid grid-cols-4 gap-4">
-          <BadgeItem name="첫 산책" />
-          <BadgeItem name="10km 달성" />
-          <BadgeItem name="7일 연속" />
-          <BadgeItem name="커뮤니티 스타" />
-          <div className="flex flex-col items-center gap-2 opacity-40">
-            <div className="w-16 h-16 bg-gray-200 rounded-full"></div>
-            <p className="text-xs text-center text-gray-500">잠김</p>
+      {/* Badges */}
+      <section>
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8">
+          <h3 className="text-lg font-extrabold text-gray-900 mb-5 flex items-center gap-2">
+            <Award className="text-yellow-500" size={20} />
+            획득한 배지
+          </h3>
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
+            <BadgeItem name="첫 산책" />
+            <BadgeItem name="10km 달성" />
+            <BadgeItem name="7일 연속" />
+            <BadgeItem name="커뮤니티 스타" />
+            <div className="flex flex-col items-center gap-2 opacity-40">
+              <div className="w-14 h-14 bg-gray-200 rounded-full" />
+              <p className="text-xs text-center text-gray-500">잠김</p>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   )
 }
@@ -237,33 +263,33 @@ function PetCard({ pet, onEdit, onDelete }: PetCardProps) {
   const displayInfo = [pet.species, pet.breed, age].filter(Boolean).join(' • ')
 
   return (
-    <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+    <div className="flex items-center gap-4 p-4 rounded-2xl border border-gray-200 bg-white shadow-sm">
       {pet.imageUrl ? (
         <img 
           src={pet.imageUrl} 
           alt={pet.name}
-          className="w-16 h-16 rounded-full object-cover"
+          className="w-14 h-14 rounded-full object-cover border border-gray-200"
         />
       ) : (
-        <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center text-xl">
+        <div className="w-14 h-14 bg-gray-200 rounded-full flex items-center justify-center text-lg font-semibold text-gray-700">
           {pet.name[0]}
         </div>
       )}
       <div className="flex-1">
-        <h4 className="font-semibold">{pet.name}</h4>
+        <h4 className="font-semibold text-gray-900">{pet.name}</h4>
         <p className="text-sm text-gray-600">{displayInfo || '정보 없음'}</p>
       </div>
       <div className="flex gap-2">
         <button
           onClick={onEdit}
-          className="p-2 hover:bg-blue-50 rounded-lg transition-colors text-blue-500"
+          className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-blue-50 transition-colors text-blue-600"
           title="수정"
         >
           <Edit size={18} />
         </button>
         <button
           onClick={onDelete}
-          className="p-2 hover:bg-red-50 rounded-lg transition-colors text-red-500"
+          className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-red-50 transition-colors text-red-600"
           title="삭제"
         >
           <X size={18} />
@@ -280,7 +306,7 @@ interface BadgeItemProps {
 function BadgeItem({ name }: BadgeItemProps) {
   return (
     <div className="flex flex-col items-center gap-2">
-      <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center">
+      <div className="w-14 h-14 bg-yellow-100 rounded-full flex items-center justify-center border border-yellow-200">
         <Award className="text-yellow-500" size={32} />
       </div>
       <p className="text-xs text-center">{name}</p>
@@ -417,12 +443,12 @@ function AddPetModal({ onClose, onSuccess }: AddPetModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b p-4 flex items-center justify-between">
+      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto border border-gray-200">
+        <div className="sticky top-0 bg-white border-b border-gray-100 p-4 flex items-center justify-between">
           <h3 className="text-xl font-bold">반려동물 추가</h3>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+            className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
           >
             <X size={24} />
           </button>
@@ -576,14 +602,14 @@ function AddPetModal({ onClose, onSuccess }: AddPetModalProps) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              className="flex-1 px-4 py-2 border border-gray-200 rounded-full text-gray-700 hover:bg-gray-50 transition-colors"
               disabled={isSubmitting}
             >
               취소
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-2 bg-primary text-white rounded-full hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isSubmitting || isUploading}
             >
               {isUploading ? '업로드 중...' : isSubmitting ? '등록 중...' : '등록'}
@@ -711,12 +737,12 @@ function EditPetModal({ pet, onClose, onSuccess }: EditPetModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b p-4 flex items-center justify-between">
+      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto border border-gray-200">
+        <div className="sticky top-0 bg-white border-b border-gray-100 p-4 flex items-center justify-between">
           <h3 className="text-xl font-bold">반려동물 수정</h3>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+            className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
           >
             <X size={24} />
           </button>
@@ -870,14 +896,14 @@ function EditPetModal({ pet, onClose, onSuccess }: EditPetModalProps) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              className="flex-1 px-4 py-2 border border-gray-200 rounded-full text-gray-700 hover:bg-gray-50 transition-colors"
               disabled={isSubmitting}
             >
               취소
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-2 bg-primary text-white rounded-full hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isSubmitting || isUploading}
             >
               {isUploading ? '업로드 중...' : isSubmitting ? '수정 중...' : '수정'}
