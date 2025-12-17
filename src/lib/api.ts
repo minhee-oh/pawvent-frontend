@@ -1,28 +1,45 @@
 import axios from 'axios';
 
 // API 기본 URL 설정
-// Vite 프록시를 통해 /api로 요청하면 백엔드(localhost:8081)로 자동 프록시됨
-const API_BASE_URL = '/api';
+export const getApiBaseUrl = () => {
+  // 1) 명시적 설정이 있으면 우선 사용
+  // - 예: VITE_API_BASE_URL=http://192.168.0.10:8081/api
+  // - 예: VITE_API_BASE_URL=/api (리버스 프록시/동일 오리진)
+  const envBase = (import.meta as any)?.env?.VITE_API_BASE_URL as string | undefined
+  if (envBase && typeof envBase === 'string') return envBase
 
-// Axios 인스턴스 생성
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+  // 2) 기본은 항상 '/api'를 사용 (Vite dev proxy 또는 동일 오리진 프록시)
+  // iOS HTTPS 테스트 시, 프론트(https) → 백엔드(http) 직접 호출은 Mixed Content로 막히므로
+  // 개발 환경에서는 반드시 프론시를 타도록 '/api' 고정이 안전합니다.
+  return '/api'
+};
+
+// API_BASE_URL은 getApiBaseUrl() 함수로 동적으로 가져옴
+
+// Axios 인스턴스 생성 (동적 baseURL을 위해 함수로 생성)
+const createApiClient = () => {
+  const baseURL = getApiBaseUrl();
+  const client = axios.create({
+    baseURL: baseURL,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
 
   // 요청 인터셉터 - 인증 토큰 추가 및 디버깅
-  apiClient.interceptors.request.use(
+  client.interceptors.request.use(
     (config) => {
+      // 매 요청마다 최신 baseURL 사용 (모바일 접속 시 IP 변경 대응)
+      const currentBaseURL = getApiBaseUrl();
+      config.baseURL = currentBaseURL;
+      
       const token = localStorage.getItem('authToken');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
       // 디버깅: 요청 URL 확인
-      if (process.env.NODE_ENV === 'development') {
-        console.log('API 요청:', config.baseURL + config.url);
-      }
+      console.log('API 요청:', currentBaseURL + config.url);
+      console.log('전체 URL:', config.baseURL + config.url);
       return config;
     },
     (error) => {
@@ -31,7 +48,7 @@ const apiClient = axios.create({
   );
 
   // 응답 인터셉터 - 에러 처리 및 디버깅
-  apiClient.interceptors.response.use(
+  client.interceptors.response.use(
     (response) => response,
     (error) => {
       // 디버깅: 상세 에러 정보 출력
@@ -71,12 +88,28 @@ const apiClient = axios.create({
       return Promise.reject(error);
     }
   );
+  
+  return client;
+};
+
+// API 클라이언트 인스턴스 생성
+const apiClient = createApiClient();
 
 // API 응답 타입
 export interface ApiResponse<T> {
   success: boolean;
   message: string;
   data: T;
+}
+
+export interface PageResponse<T> {
+  content: T[];
+  totalPages: number;
+  totalElements: number;
+  number: number;
+  size: number;
+  first: boolean;
+  last: boolean;
 }
 
 // 인증 관련 API
@@ -163,6 +196,40 @@ export const walkSessionApi = {
     return response.data;
   },
 
+  // 내 완료된 산책 세션 목록 조회
+  getMyCompletedSessions: async () => {
+    const response = await apiClient.get<ApiResponse<WalkSessionResponse[]>>(
+      '/walk-sessions/my/completed'
+    );
+    return response.data;
+  },
+
+  // 내 산책 세션 목록 페이지네이션 조회
+  getMySessionsPaged: async (page: number = 0, size: number = 10) => {
+    const response = await apiClient.get<ApiResponse<PageResponse<WalkSessionResponse>>>(
+      '/walk-sessions/my/paged',
+      { params: { page, size, sort: 'startTime,desc' } }
+    );
+    return response.data;
+  },
+
+  // 기간별 산책 세션 조회
+  getMySessionsByRange: async (startDate: string, endDate: string) => {
+    const response = await apiClient.get<ApiResponse<WalkSessionResponse[]>>(
+      '/walk-sessions/my/range',
+      { params: { startDate, endDate } }
+    );
+    return response.data;
+  },
+
+  // 산책 세션 단건 조회
+  getById: async (sessionId: number) => {
+    const response = await apiClient.get<ApiResponse<WalkSessionResponse>>(
+      `/walk-sessions/${sessionId}`
+    );
+    return response.data;
+  },
+
   // 최근 산책 세션 조회
   getRecent: async (limit: number = 5) => {
     const response = await apiClient.get<ApiResponse<WalkSessionResponse[]>>(
@@ -239,9 +306,10 @@ export const fileApi = {
     
     try {
       // multipart/form-data를 위해 axios를 직접 사용
-      // Vite 프록시를 통해 /api로 요청하면 백엔드로 자동 프록시됨
+      // 모바일 접속 시 백엔드 서버의 실제 IP 주소 사용
+      const fileApiUrl = getApiBaseUrl() + '/files/pets/image';
       const response = await axios.post<ApiResponse<string>>(
-        '/api/files/pets/image',
+        fileApiUrl,
         formData,
         {
           headers: {
@@ -519,4 +587,9 @@ export interface CommunityPostUpdateRequest {
 }
 
 export default apiClient;
+
+// API 클라이언트 재생성 함수 (모바일 접속 시 IP 변경 대응)
+export const recreateApiClient = () => {
+  return createApiClient();
+};
 

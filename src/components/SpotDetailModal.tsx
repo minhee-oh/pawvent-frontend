@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { X, MapPin, Phone, Star, Calendar } from 'lucide-react'
 import { SpotData } from './KakaoMap'
 
@@ -7,11 +8,8 @@ interface SpotDetailModalProps {
   onClose: () => void
 }
 
-export default function SpotDetailModal({ spot, isOpen, onClose }: SpotDetailModalProps) {
-  console.log('SpotDetailModal 렌더링:', { isOpen, spot: spot?.name });
-  
+function SpotDetailModal({ spot, isOpen, onClose }: SpotDetailModalProps) {
   if (!isOpen || !spot) {
-    console.log('SpotDetailModal 조건 불만족:', { isOpen, hasSpot: !!spot });
     return null;
   }
 
@@ -158,4 +156,6 @@ export default function SpotDetailModal({ spot, isOpen, onClose }: SpotDetailMod
     </div>
   )
 }
+
+export default memo(SpotDetailModal)
 
